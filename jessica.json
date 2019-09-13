@@ -1,0 +1,11 @@
+{
+  "version": "0.1",
+  "port": "5000",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/preLogin",
+      "data": "prelogin.json"
+    }
+  ]
+}
