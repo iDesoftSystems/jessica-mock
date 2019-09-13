@@ -8,11 +8,13 @@ And because it's fast it can reduce your build time from hours down to minutes.
 
 # Basic structure
 
+```
 |--static
 |----login.json
 |----user.json
 |--jessica.json (configuration file)
 |--jessica (binary file)
+```
 
 # Jessica Config file
 
@@ -39,7 +41,7 @@ And because it's fast it can reduce your build time from hours down to minutes.
 
 To build jessica
 
-`go build -o jessica`
+`go build -o bin/jessica`
 
 To run jessica
 
