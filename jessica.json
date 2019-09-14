@@ -1,11 +1,29 @@
 {
-  "version": "0.1",
+  "version": "0.2",
   "port": "5000",
-  "routes": [
+  "allowed_headers": "Content-Type, X-CSRF-Token, Authorization, access-control-expose-headers",
+  "allowed_origins": "*",
+  "allowed_methods": "GET, HEAD, POST, PUT, OPTIONS",
+  "stubs": [
     {
-      "method": "GET",
-      "path": "/preLogin",
-      "data": "prelogin.json"
+      "request": {
+        "url": "/api/authenticate",
+        "method": "POST"
+      },
+      "response": {
+        "status": 401,
+        "content": "auth.json"
+      }
+    },
+    {
+      "request": {
+        "url": "/login.html",
+        "method": "GET"
+      },
+      "response": {
+        "content": "login.html",
+        "content-type": "text/html"
+      }
     }
   ]
 }
