@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 // #region Helpers
@@ -15,30 +17,64 @@ func Respond(writer http.ResponseWriter, data map[string]interface{}) {
 	json.NewEncoder(writer).Encode(data)
 }
 
-func findRoute(items []Route, query string) (Route, bool) {
-	var exist Route
+func Message(message string) map[string]interface{} {
+	return map[string]interface{}{"message": message}
+}
+
+func findStub(items []Stub, query *http.Request) (Stub, bool) {
+	var exist Stub
 	for _, item := range items {
-		if query == item.Path {
+		if query.URL.Path == item.Request.Url && query.Method == item.Request.Method {
 			return item, true
 		}
 	}
 	return exist, false
 }
 
+func getConfig() (Config, error) {
+	var config Config
+	jsonFile, errFile := os.Open("jessica.json")
+	if errFile != nil {
+		log.Fatalf("ConfigurationError: %v", errFile)
+		return config, errFile
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	if err := json.Unmarshal(byteValue, &config); err != nil {
+		return config, err
+	}
+
+	return config, nil
+}
+
 // endregion
 
 // #region Struct
 
-type Route struct {
+type Request struct {
+	Url    string `json:"url"`
 	Method string `json:"method"`
-	Path   string `json:"path"`
-	Data   string `json:"data"`
+}
+
+type Response struct {
+	Status      int    `json:"status"`
+	ContentType string `json:"content-type"`
+	Content     string `json:"content"`
+}
+
+type Stub struct {
+	Request  Request  `json:"request"`
+	Response Response `json:"response"`
 }
 
 type Config struct {
-	Version string  `json:"version"`
-	Port    string  `json:"port"`
-	Routes  []Route `json:"routes"`
+	Version        string `json:"version"`
+	Port           string `json:"port"`
+	AllowedHeaders string `json:"allowed_headers"`
+	AllowedOrigins string `json:"allowed_origins"`
+	AllowedMethods string `json:"allowed_methods"`
+	Stubs          []Stub `json:"stubs"`
 }
 
 // endregion
@@ -47,45 +83,79 @@ type Config struct {
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
-		"name":      "jessica",
-		"version":   "0.1",
+		"name":      "Jessica Mock Tool",
+		"version":   "0.2",
 		"codename":  "Llamas in Pajamas",
 		"copyright": "Copyright (c) 2019 iDesoft Systems. All Rights Reserved.",
 	}
 	Respond(w, resp)
 }
 
-func handlerByStaticFile(fs http.Handler, mux http.Handler) http.Handler {
+func corsHandler(handler http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, req *http.Request) {
-		jsonFile, errFile := os.Open("jessica.json")
-		if errFile != nil {
-			log.Fatalf("ConfigurationError: %v", errFile)
-		}
-		defer jsonFile.Close()
-
-		byteValue, _ := ioutil.ReadAll(jsonFile)
-		var config Config
-		if err := json.Unmarshal(byteValue, &config); err != nil {
+		config, err := getConfig()
+		if err != nil {
 			log.Printf("ConfigurationError: %v", err)
-			http.Error(w, "Page Not Found", http.StatusNotFound)
+			Respond(w, Message(fmt.Sprintf("ConfigurationError: %v", err)))
 			return
 		}
 
-		routes := config.Routes
-		route, found := findRoute(routes, req.URL.Path)
+		w.Header().Set("Access-Control-Allow-Origin", config.AllowedOrigins)
+		w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		if req.Method == "OPTIONS" {
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
+			w.Header().Set("Access-Control-Allow-Methods", config.AllowedMethods)
+			w.Header().Set("Access-Control-Allow-Headers", config.AllowedHeaders)
+			return
+		} else {
+			handler.ServeHTTP(w, req)
+		}
+	}
+	return http.HandlerFunc(fn)
+}
+
+func staticFilesHandler(fs http.Handler, mux http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, req *http.Request) {
+		config, err := getConfig()
+		if err != nil {
+			log.Printf("ConfigurationError: %v", err)
+			Respond(w, Message(fmt.Sprintf("ConfigurationError: %v", err)))
+			return
+		}
+
+		stubs := config.Stubs
+		stub, found := findStub(stubs, req)
 		if found {
-			log.Printf("Started %v \"%v\"", route.Method, req.URL.Path)
+			startTime := time.Now()
+
+			log.Printf("Started %v \"%v\" at %v", req.Method, req.URL.Path, startTime.Format(time.RFC3339))
 
 			fsHandler := http.StripPrefix("", fs)
-			log.Printf("Processing by %v", route.Data)
+			log.Printf("Processing by %v", stub.Response.Content)
 
-			// rewrite url to static file
-			req.URL.Path = route.Data
+			if stub.Response.Content != "" {
+				// rewrite url to static file
+				req.URL.Path = stub.Response.Content
+			}
+
+			if stub.Response.ContentType != "" {
+				w.Header().Add("Content-Type", stub.Response.ContentType)
+			}
+
+			var completedStatus int
+			if stub.Response.Status != 0 {
+				completedStatus = stub.Response.Status
+				w.WriteHeader(stub.Response.Status)
+			} else {
+				completedStatus = 200
+			}
 
 			fsHandler.ServeHTTP(w, req)
-			log.Printf("Completed")
+			elapsed := time.Since(startTime)
+
+			log.Printf("Completed %v %v in %v\n\n", completedStatus, http.StatusText(completedStatus), elapsed)
 		} else if mux != nil {
-			log.Printf("RoutingError: No route matches [%v] \"%v\"", req.Method, req.URL.Path)
+			log.Printf("RoutingError: No stub matches [%v] \"%v\"", req.Method, req.URL.Path)
 			mux.ServeHTTP(w, req)
 		} else {
 			http.Error(w, "Page Not Found", http.StatusNotFound)
@@ -99,27 +169,19 @@ func handlerByStaticFile(fs http.Handler, mux http.Handler) http.Handler {
 
 func main() {
 
-	jsonFile, errFile := os.Open("jessica.json")
-	if errFile != nil {
-		log.Fatalf("ConfigurationError: %v", errFile)
-	}
-
-	defer jsonFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	var config Config
-	if err := json.Unmarshal(byteValue, &config); err != nil {
+	config, err := getConfig()
+	if err != nil {
 		log.Fatalf("ConfigurationError: %v", err)
 	}
 
-	log.Println("=> Jessica 0.1 application starting")
+	log.Println("=> Jessica 0.2 application starting")
 	log.Printf("* Mock version %v\n", config.Version)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jessica", aboutHandler)
 
 	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", handlerByStaticFile(fs, mux))
+	http.Handle("/", corsHandler(staticFilesHandler(fs, mux)))
 
 	port := config.Port
 	if port == "" {
@@ -127,7 +189,7 @@ func main() {
 	}
 
 	log.Printf("* Listening on tcp://0.0.0.0:%v\n", port)
-	log.Printf("Use Ctrl-C to stop\n")
+	log.Printf("Use Ctrl-C to stop\n\n")
 
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
