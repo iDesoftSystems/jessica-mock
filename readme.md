@@ -9,29 +9,42 @@ And because it's fast it can reduce your build time from hours down to minutes.
 # Basic structure
 
 ```
-|--static
-|----login.json
-|----user.json
-|--jessica.json (configuration file)
-|--jessica (binary file)
+├── static
+│   ├── auth.json
+│   └── login.html
+├── jessica.json (configuration file)
+└── jessica (binary file)
 ```
 
 # Jessica Config file
 
 ```json
 {
-  "version": "0.1",
+  "version": "0.2",
   "port": "5000",
-  "routes": [
+  "allowed_headers": "Content-Type, X-CSRF-Token, Authorization, access-control-expose-headers",
+  "allowed_origins": "*",
+  "allowed_methods": "GET, HEAD, POST, PUT, OPTIONS",
+  "stubs": [
     {
-      "method": "GET",
-      "path": "/login",
-      "data": "login.json"
+      "request": {
+        "url": "/api/authenticate",
+        "method": "POST"
+      },
+      "response": {
+        "status": 401,
+        "content": "auth.json"
+      }
     },
     {
-      "method": "GET",
-      "path": "/user",
-      "data": "user.json"
+      "request": {
+        "url": "/login.html",
+        "method": "GET"
+      },
+      "response": {
+        "content": "login.html",
+        "content-type": "text/html"
+      }
     }
   ]
 }
