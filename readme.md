@@ -6,7 +6,7 @@ It enables you to stay productive when an API you depend on doesn't exist or ins
 It supports testing of edge cases and failure modes that the real API won't reliable produce.
 And because it's fast it can reduce your build time from hours down to minutes. 
 
-# Basic structure
+## Basic structure
 
 ```
 ├── static
@@ -16,7 +16,7 @@ And because it's fast it can reduce your build time from hours down to minutes.
 └── jessica (binary file)
 ```
 
-# Jessica Config file
+## Jessica Config file
 
 ```json
 {
@@ -50,7 +50,7 @@ And because it's fast it can reduce your build time from hours down to minutes.
 }
 ```
 
-# Building Jessica Mock locally
+## Building Jessica Mock locally
 
 To build jessica
 
@@ -59,3 +59,10 @@ To build jessica
 To run jessica
 
 `go run main.go`
+
+## Build inside docker
+
+```bash
+docker build -t idesoft/jessica .
+docker run --rm -p 5000:5000 idesoft/jessica
+```
