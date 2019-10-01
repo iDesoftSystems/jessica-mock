@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3 (02 Oct 2019)
+
+### Features
+
+- Build inside docker
+
 ## 0.2 (15 Sep 2019)
 
 ### Features
