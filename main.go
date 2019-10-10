@@ -102,8 +102,8 @@ func corsHandler(handler http.Handler) http.Handler {
 
 		w.Header().Set("Access-Control-Allow-Origin", config.AllowedOrigins)
 		w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		if req.Method == "OPTIONS" {
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", config.AllowedMethods)
 			w.Header().Set("Access-Control-Allow-Headers", config.AllowedHeaders)
 			return
