@@ -84,7 +84,7 @@ type Config struct {
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"name":      "Jessica Mock Tool",
-		"version":   "0.2",
+		"version":   "0.3.1",
 		"codename":  "Llamas in Pajamas",
 		"copyright": "Copyright (c) 2019 iDesoft Systems. All Rights Reserved.",
 	}
@@ -174,7 +174,7 @@ func main() {
 		log.Fatalf("ConfigurationError: %v", err)
 	}
 
-	log.Println("=> Jessica 0.2 application starting")
+	log.Println("=> Jessica 0.3.1 application starting")
 	log.Printf("* Mock version %v\n", config.Version)
 
 	mux := http.NewServeMux()
