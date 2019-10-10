@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (10 Oct 2019)
+
+### Bug Fixes
+
+- Always write 'Access-Control-Allow-Credentials' header on responses.
+
 ## 0.3 (02 Oct 2019)
 
 ### Features

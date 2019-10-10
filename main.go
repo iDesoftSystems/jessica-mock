@@ -84,7 +84,7 @@ type Config struct {
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
 		"name":      "Jessica Mock Tool",
-		"version":   "0.2",
+		"version":   "0.3.1",
 		"codename":  "Llamas in Pajamas",
 		"copyright": "Copyright (c) 2019 iDesoft Systems. All Rights Reserved.",
 	}
@@ -102,8 +102,8 @@ func corsHandler(handler http.Handler) http.Handler {
 
 		w.Header().Set("Access-Control-Allow-Origin", config.AllowedOrigins)
 		w.Header().Add("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		if req.Method == "OPTIONS" {
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			w.Header().Set("Access-Control-Allow-Methods", config.AllowedMethods)
 			w.Header().Set("Access-Control-Allow-Headers", config.AllowedHeaders)
 			return
@@ -174,7 +174,7 @@ func main() {
 		log.Fatalf("ConfigurationError: %v", err)
 	}
 
-	log.Println("=> Jessica 0.2 application starting")
+	log.Println("=> Jessica 0.3.1 application starting")
 	log.Printf("* Mock version %v\n", config.Version)
 
 	mux := http.NewServeMux()
