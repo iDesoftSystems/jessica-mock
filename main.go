@@ -3,58 +3,28 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"reflect"
 	"time"
 )
 
-// #region Helpers
-
-func Respond(writer http.ResponseWriter, data map[string]interface{}) {
-	writer.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(writer).Encode(data)
-}
-
-func Message(message string) map[string]interface{} {
-	return map[string]interface{}{"message": message}
-}
-
-func findStub(items []Stub, query *http.Request) (Stub, bool) {
-	var exist Stub
-	for _, item := range items {
-		if query.URL.Path == item.Request.Url && query.Method == item.Request.Method {
-			return item, true
-		}
-	}
-	return exist, false
-}
-
-func getConfig() (Config, error) {
-	var config Config
-	jsonFile, errFile := os.Open("jessica.json")
-	if errFile != nil {
-		log.Fatalf("ConfigurationError: %v", errFile)
-		return config, errFile
-	}
-	defer jsonFile.Close()
-
-	byteValue, _ := ioutil.ReadAll(jsonFile)
-	if err := json.Unmarshal(byteValue, &config); err != nil {
-		return config, err
-	}
-
-	return config, nil
-}
-
-// endregion
+const (
+	AppName      = "Jessica Mock Tool"
+	AppVersion   = "0.4"
+	AppCodename  = "Llamas in Pajamas"
+	AppCopyright = "Copyright (c) 2019 iDesoft Systems. All Rights Reserved."
+)
 
 // #region Struct
 
 type Request struct {
 	Url    string `json:"url"`
 	Method string `json:"method"`
+	Body   string `json:"body"`
 }
 
 type Response struct {
@@ -79,14 +49,89 @@ type Config struct {
 
 // endregion
 
+// #region Helpers
+
+func Respond(writer http.ResponseWriter, data map[string]interface{}) {
+	writer.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(writer).Encode(data)
+}
+
+func Message(message string) map[string]interface{} {
+	return map[string]interface{}{"message": message}
+}
+
+func findStub(items []Stub, query *http.Request) (Stub, bool) {
+	var exist Stub
+	var requestRawBody map[string]interface{}
+	requestDecoder := json.NewDecoder(query.Body)
+	if err := requestDecoder.Decode(&requestRawBody); err != nil && err != io.EOF {
+		log.Printf("RequestDecoderError: %v\n", err)
+	}
+	log.Printf("Parameters: %v", requestRawBody)
+
+	for _, item := range items {
+		if query.URL.Path == item.Request.Url && query.Method == item.Request.Method {
+
+			if item.Request.Body == "" {
+				return item, true
+			}
+
+			itemRawBody, err := getStubRequest(item.Request.Body)
+			if err != nil {
+				log.Printf("StubBodyDecoderError: %v\n", err)
+			}
+
+			equalRaws := reflect.DeepEqual(requestRawBody, itemRawBody)
+			if equalRaws {
+				return item, true
+			}
+		}
+	}
+	return exist, false
+}
+
+func getStubRequest(fileName string) (map[string]interface{}, error) {
+	var itemRawBody map[string]interface{}
+	requestStub, err := os.Open(fmt.Sprintf("static/%v", fileName))
+	if err != nil {
+		return itemRawBody, err
+	}
+	defer requestStub.Close()
+
+	byteVale, _ := ioutil.ReadAll(requestStub)
+	if err := json.Unmarshal(byteVale, &itemRawBody); err != nil {
+		return itemRawBody, err
+	}
+
+	return itemRawBody, nil
+}
+
+func getConfig() (Config, error) {
+	var config Config
+	jsonFile, errFile := os.Open("jessica.json")
+	if errFile != nil {
+		return config, errFile
+	}
+	defer jsonFile.Close()
+
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	if err := json.Unmarshal(byteValue, &config); err != nil {
+		return config, err
+	}
+
+	return config, nil
+}
+
+// endregion
+
 // #region Handlers
 
 func aboutHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]interface{}{
-		"name":      "Jessica Mock Tool",
-		"version":   "0.3.1",
-		"codename":  "Llamas in Pajamas",
-		"copyright": "Copyright (c) 2019 iDesoft Systems. All Rights Reserved.",
+		"name":      AppName,
+		"version":   AppVersion,
+		"codename":  AppCodename,
+		"copyright": AppCopyright,
 	}
 	Respond(w, resp)
 }
@@ -95,7 +140,7 @@ func corsHandler(handler http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, req *http.Request) {
 		config, err := getConfig()
 		if err != nil {
-			log.Printf("ConfigurationError: %v", err)
+			log.Printf("ConfigurationError: %v\n\n", err)
 			Respond(w, Message(fmt.Sprintf("ConfigurationError: %v", err)))
 			return
 		}
@@ -116,9 +161,12 @@ func corsHandler(handler http.Handler) http.Handler {
 
 func staticFilesHandler(fs http.Handler, mux http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, req *http.Request) {
+		startTime := time.Now()
+		log.Printf("Started %v \"%v\" at %v", req.Method, req.URL.Path, startTime.Format(time.RFC3339))
+
 		config, err := getConfig()
 		if err != nil {
-			log.Printf("ConfigurationError: %v", err)
+			log.Printf("ConfigurationError: %v\n", err)
 			Respond(w, Message(fmt.Sprintf("ConfigurationError: %v", err)))
 			return
 		}
@@ -126,10 +174,6 @@ func staticFilesHandler(fs http.Handler, mux http.Handler) http.Handler {
 		stubs := config.Stubs
 		stub, found := findStub(stubs, req)
 		if found {
-			startTime := time.Now()
-
-			log.Printf("Started %v \"%v\" at %v", req.Method, req.URL.Path, startTime.Format(time.RFC3339))
-
 			fsHandler := http.StripPrefix("", fs)
 			log.Printf("Processing by %v", stub.Response.Content)
 
@@ -155,7 +199,7 @@ func staticFilesHandler(fs http.Handler, mux http.Handler) http.Handler {
 
 			log.Printf("Completed %v %v in %v\n\n", completedStatus, http.StatusText(completedStatus), elapsed)
 		} else if mux != nil {
-			log.Printf("RoutingError: No stub matches [%v] \"%v\"", req.Method, req.URL.Path)
+			log.Printf("RoutingError: No stub matches [%v] \"%v\"\n\n", req.Method, req.URL.Path)
 			mux.ServeHTTP(w, req)
 		} else {
 			http.Error(w, "Page Not Found", http.StatusNotFound)
@@ -174,7 +218,7 @@ func main() {
 		log.Fatalf("ConfigurationError: %v", err)
 	}
 
-	log.Println("=> Jessica 0.3.1 application starting")
+	log.Printf("=> %v %v application starting\n", AppName, AppVersion)
 	log.Printf("* Mock version %v\n", config.Version)
 
 	mux := http.NewServeMux()

@@ -1,5 +1,5 @@
 {
-  "version": "0.2",
+  "version": "0.4",
   "port": "5000",
   "allowed_headers": "Content-Type, X-CSRF-Token, Authorization, access-control-expose-headers",
   "allowed_origins": "*",
@@ -8,11 +8,33 @@
     {
       "request": {
         "url": "/api/authenticate",
-        "method": "POST"
+        "method": "POST",
+        "body": "authRequest401.json"
       },
       "response": {
         "status": 401,
+        "content": "auth401.json"
+      }
+    },
+    {
+      "request": {
+        "url": "/api/authenticate",
+        "method": "POST",
+        "body": "authRequest200.json"
+      },
+      "response": {
+        "status": 200,
         "content": "auth.json"
+      }
+    },
+    {
+      "request": {
+        "url": "/api/authenticate",
+        "method": "POST"
+      },
+      "response": {
+        "status": 422,
+        "content": "auth422.json"
       }
     },
     {
