@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4 (19 Oct 2019)
+
+### Features
+
+- Allows mocks of the request body
+
 ## 0.3.1 (10 Oct 2019)
 
 ### Bug Fixes
